@@ -25,7 +25,7 @@
 #include <iterator>
 #include <stdexcept>
 #include <algorithm>
-
+#include <cstring>
 #include <ctype.h>
 
 using std::cout;
@@ -5856,7 +5856,7 @@ void Asm::In::parseRSSET(Tokenizer & tz)
 		rsset = tok.num();
 	}
 
-	*pout << "\t\RSSET=" << rsset << endl;
+	*pout << "\tRSSET=" << rsset << endl;
 
 
 
