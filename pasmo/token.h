@@ -70,6 +70,7 @@ enum TypeToken {
 	TypeBoolAnd,
 	TypeBoolOr,
 	TypeSharpSharp,
+	TypeGETBANK,
 
 	// Nemonics
 	TypeADC,
@@ -211,6 +212,7 @@ enum TypeToken {
 	TypeINCBIN,
 	TypeSAVEBIN,
 	TypeMESSAGE,
+	TypeSETBANK,
 	TypePC,
 	TypeALIGN,
 	TypeRSSET,

@@ -189,6 +189,14 @@ public:
 	{ }
 };
 
+class BankValueExpected : public runtime_error {
+public:
+	BankValueExpected(const Token & tok) :
+		runtime_error("Bank Value expected but '" +
+			tok.str() + "'found")
+	{ }
+};
+
 
 class SomeOpenExpected : public runtime_error {
 public:
@@ -763,22 +771,26 @@ public:
 	VarData (bool makelocal= false) :
 		value (0),
 		defined (NoDefined),
-		local (makelocal)
+		local (makelocal),
+		bank(0)
 	{ }
-	VarData (address valuen, Defined definedn) :
+	VarData (address valuen, Defined definedn,int bankn) :
 		value (valuen),
 		defined (definedn),
-		local (false)
+		local (false),
+		bank(bankn)
 	{ }
-	void set (address valuen, Defined definedn)
+	void set (address valuen, Defined definedn, int bankn)
 	{
 		value= valuen;
 		defined= definedn;
+		bank = bankn;
 	}
 	void clear ()
 	{
 		value= 0;
 		defined= NoDefined;
+		bank = 0;
 	}
 	address getvalue () const
 	{
@@ -788,6 +800,10 @@ public:
 	{
 		return defined;
 	}
+	int getbank() const
+	{
+		return bank;
+	}
 	bool islocal () const
 	{
 		return local;
@@ -796,6 +812,7 @@ private:
 	address value;
 	Defined defined;
 	bool local;
+	int bank;
 };
 
 
@@ -965,11 +982,21 @@ private:
 	address getvalue (const std::string & var,
 		bool required, bool ignored);
 
+	int getvaluebank(const std::string & var,
+		bool required, bool ignored);
+
+	
+
 	// Expression evaluation.
 
 	bool isdefined (const std::string & varname);
 	void parsevalue (Tokenizer & tz, address & result,
 		bool required, bool ignored);
+
+	void parsebankvalue(Tokenizer & tz, address & result,
+		bool required, bool ignored);
+
+
 	void expectclose (Tokenizer & tz);
 	void parseopen (Tokenizer & tz, address & result,
 		bool required, bool ignored);
@@ -992,6 +1019,12 @@ private:
 		bool required, bool ignored);
 	void parsehighlow (Tokenizer & tz, address & result,
 		bool required, bool ignored);
+	void parsegetbank(Tokenizer & tz, address & result,
+		bool required, bool ignored);
+
+	
+
+
 	void parsecond (Tokenizer & tz, address & result,
 		bool required, bool ignored);
 	void parsebase (Tokenizer & tz, address & result,
@@ -1147,6 +1180,7 @@ private:
 	void parseDEFS (Tokenizer & tz);
 	void parseINCBIN (Tokenizer & tz);
 	void parseSAVEBIN(Tokenizer & tz);
+	void parseBANK(Tokenizer & tz);
 	void parseALIGN(Tokenizer & tz);
 
 	void parseMESSAGE(Tokenizer & tz);
@@ -1177,6 +1211,7 @@ private:
 	byte mem[65536]{};
 
 	int rsset = 0;
+	int CurrentBank = 0;
 
 	address base;
 	address current;
@@ -1643,7 +1678,10 @@ void Asm::In::gencodeword (address value)
 bool Asm::In::setvar (const std::string & varname,
 	address value, Defined defined)
 {
-	TRFDEBS ("Set '" << varname << "' to " << value);
+	TRFDEBS ("Set '" << varname << "' to " << value<<" in bank "<< CurrentBank);
+
+
+	*pout << "Set '" << varname << "' to " << value << " in bank " << CurrentBank << endl;
 
 	checkautolocal (varname);
 	mapvar_t::iterator it= mapvar.find (varname);
@@ -1678,7 +1716,7 @@ bool Asm::In::setvar (const std::string & varname,
 		default:
 			/* Nothing */;
 		}
-		it->second.set (value, defined);
+		it->second.set (value, defined,CurrentBank);
 
 		#else
 
@@ -1690,10 +1728,36 @@ bool Asm::In::setvar (const std::string & varname,
 	else
 	{
 		mapvar.insert (make_pair (varname,
-			VarData (value, defined) ) );
+			VarData (value, defined,CurrentBank) ) );
 		return false;
 	}
 }
+
+
+int Asm::In::getvaluebank(const std::string & var,
+	bool required, bool ignored)
+{
+	TRF;
+
+	checkautolocal(var);
+
+	VarData & vd = mapvar[var];
+	if (vd.def() == NoDefined)
+	{
+		TRDEBS(var << " not yet defined");
+		if ((pass > 1 || required) && !ignored)
+			throw UndefinedVar(var);
+		else
+			return 0;
+	}
+	else
+	{
+		int b = vd.getbank();
+		TRDEBS(var << " is " << b);
+		return b;
+	}
+}
+
 
 address Asm::In::getvalue (const std::string & var,
 	bool required, bool ignored)
@@ -2081,6 +2145,7 @@ void Asm::In::parsehighlow (Tokenizer & tz, address & result,
 	Token tok= tz.gettoken ();
 	switch (tok.type () )
 	{
+
 	case TypeHIGH:
 		parsehighlow (tz, result, required, ignored);
 		result= hibyte (result);
@@ -2089,15 +2154,57 @@ void Asm::In::parsehighlow (Tokenizer & tz, address & result,
 		parsehighlow (tz, result, required, ignored);
 		result= lobyte (result);
 		break;
+
+	case TypeGETBANK:
+		parsegetbank(tz, result, required, ignored);
+		break;
 	default:
 		tz.ungettoken ();
 		parseboolor (tz, result, required, ignored);
 	}
 }
 
+
+void Asm::In::parsegetbank(Tokenizer & tz, address & result,
+	bool required, bool ignored)
+{
+	Token tok = tz.gettoken();
+	switch (tok.type())
+	{
+
+	default:
+		tz.ungettoken();
+		parsebankvalue(tz, result, required, ignored);
+	}
+}
+
+
+void Asm::In::parsebankvalue(Tokenizer & tz, address & result,
+	bool required, bool ignored)
+{
+	TRF;
+
+	Token tok = tz.gettoken();
+	switch (tok.type())
+	{
+	case TypeIdentifier:
+		result = (address)getvaluebank(tok.str(), required, ignored);
+		break;
+	default:
+		throw BankValueExpected(tok);
+	}
+}
+
+
+
+
+
 void Asm::In::parsecond (Tokenizer & tz, address & result,
 	bool required, bool ignored)
 {
+
+	//parsegetbank(tz, result, required, ignored);
+
 	parsehighlow (tz, result, required, ignored);
 	Token tok= tz.gettoken ();
 	if (tok.type () != TypeQuestion)
@@ -2529,6 +2636,9 @@ void Asm::In::processfile ()
 {
 	TRF;
 
+	//reset bank num,ber on each pass
+	CurrentBank = 0;
+
 	try 
 	{
 		pass= 1;
@@ -2654,6 +2764,9 @@ void Asm::In::parsegeneric (Tokenizer & tz, Token tok)
 		break;
 	case TypeSAVEBIN:
 		parseSAVEBIN(tz);
+		break;
+	case TypeSETBANK:
+		parseBANK(tz);
 		break;
 	case TypeMESSAGE:
 		parseMESSAGE(tz);
@@ -2842,6 +2955,7 @@ void Asm::In::parseORG (Tokenizer & tz, const std::string & label)
 	Token tok= tz.gettoken ();
 	address org= parseexpr (true, tok, tz);
 	current= org;
+
 
 	* pout << "\t\tORG " << hex4 (org) << endl;
 
@@ -3501,6 +3615,12 @@ void Asm::In::dobyteinmediate (Tokenizer & tz, byte code,
 		gencode (prefix);
 	}
 
+
+	if (value > 256 && pass>=lastpass)
+	{
+		emitwarning("byte value source > 255!");
+
+	}
 	byte bvalue= lobyte (value);
 	gencode (code, bvalue);
 
@@ -5767,6 +5887,19 @@ void Asm::In::parseINCBIN (Tokenizer & tz)
 		}
 	}
 }
+
+
+void Asm::In::parseBANK(Tokenizer & tz)
+{
+
+	Token tok = tz.gettoken();
+	address value = parseexpr(false, tok, tz);
+	checkendline(tz);
+	bool islocal = setdefl("CURRENTBANK", value);
+	*pout <<"\t\tBANK "<< hex4(value) << endl;
+	CurrentBank = value;
+}
+
 
 
 void Asm::In::parseSAVEBIN(Tokenizer & tz)

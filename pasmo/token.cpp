@@ -88,6 +88,7 @@ const NameType nt []= {
 	NameType ("&&", TypeBoolAnd),
 	NameType ("||", TypeBoolOr),
 	NameType ("##", TypeSharpSharp),
+	NameType("??", TypeGETBANK),
 
 	// Nemonics
 	NT (ADC),
@@ -229,6 +230,7 @@ const NameType nt []= {
 	NT (INCBIN),
 	NT (SAVEBIN),
 	NT (MESSAGE),
+	NT (SETBANK),
 	NT (PC),
 	NT (ALIGN),
 	NT (RSSET),
