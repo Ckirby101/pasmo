@@ -916,11 +916,12 @@ public:
 	void warn8080 ();
 	void set86 ();
 	void setpass3 ();
+	void snasmerrors();
 
 	void addpredef (const std::string & predef);
 	void setheadername (const std::string & headername_n);
 
-	void loadfile (const std::string & filename);
+	void loadfile (const std::string & filename,bool usesnasmerrors);
 	void processfile ();
 
 	int currentpass () const;
@@ -1223,6 +1224,7 @@ private:
 	bool hasentrypoint;
 	int pass;
 	int lastpass;
+	bool usesnasmerrors;
 	size_t iflevel;
 
 	// ********** Symbol tables ************
@@ -1521,6 +1523,12 @@ void Asm::In::setpass3 ()
 {
 	lastpass= 3;
 }
+
+void Asm::In::snasmerrors()
+{
+	usesnasmerrors = true;
+}
+
 
 void Asm::In::addpredef (const std::string & predef)
 {
@@ -2627,9 +2635,9 @@ void Asm::In::dopass ()
 	* pverb << "Pass " << pass << " finished" << endl;
 }
 
-void Asm::In::loadfile (const std::string & filename)
+void Asm::In::loadfile (const std::string & filename,bool usesnasmerrors)
 {
-	AsmFile::loadfile (filename, nocase, * pverb, * perr);
+	AsmFile::loadfile (filename, nocase, * pverb, * perr, usesnasmerrors);
 }
 
 void Asm::In::processfile ()
@@ -2667,9 +2675,21 @@ void Asm::In::processfile ()
 	}
 	catch (...)
 	{
-		* perr << "ERROR";
-		showcurrentlineinfo (* perr);
-		* perr << endl;
+		if (usesnasmerrors)
+		{
+			showcurrentlineinfo(*perr, usesnasmerrors);
+			//*perr << "ERROR";
+			//*perr << endl;
+
+		}
+		else
+		{
+			*perr << "ERROR";
+			showcurrentlineinfo(*perr, usesnasmerrors);
+			*perr << endl;
+
+		}
+
 		throw;
 	}
 }
@@ -3455,9 +3475,21 @@ byte Asm::In::parsedesp (Tokenizer & tz, bool bracket)
 
 void Asm::In::emitwarning (const std::string & text)
 {
-	* pwarn << "WARNING: " << text;
-	showcurrentlineinfo (* pwarn);
-	* pwarn << endl;
+	if (usesnasmerrors)
+	{
+		showcurrentlineinfo(*pwarn, usesnasmerrors);
+		*pwarn << "WARNING: " << text;
+		*pwarn << endl;
+
+	}
+	else
+	{
+		*pwarn << "WARNING: " << text;
+		showcurrentlineinfo(*pwarn, usesnasmerrors);
+		*pwarn << endl;
+
+	}
+
 }
 
 void Asm::In::no8080 ()
@@ -5748,6 +5780,25 @@ void Asm::In::parseNextReg (Tokenizer & tz)
     		checkendline (tz);
             return;
         }
+		else if (tok.type() == TypeGETBANK)
+		{
+
+
+			no86();
+
+			gencodeED(0x91);
+			gendata(reg);
+			address result;
+			parsebankvalue(tz, result, false, false);
+
+			//byte value = parseexpr(false, tok, tz);
+			gendata(result);
+			showcode("NEXTREG " + hex2str(reg) + ", " + hex4str(result));
+
+			no8080();
+
+			checkendline(tz);
+		}
 		else
         {
             // invalid operation
@@ -5966,6 +6017,9 @@ void Asm::In::parseALIGN(Tokenizer & tz)
 	
 	//how much to pad
 	int mod = tok.num() - (pc % tok.num());
+
+	// check for already aligned!
+	if (mod == tok.num()) return;
 
 	for (int i = 0; i < mod; i++)
 	{
@@ -6440,9 +6494,21 @@ void Asm::In::expandMACRO (const std::string & name,
 	}
 	catch (...)
 	{
-		* perr << "ERROR expanding macro";
-		showlineinfo (* perr, mframe.getexpline () );
-		* perr << endl;
+		if (!usesnasmerrors)
+		{
+			*perr << "ERROR: expanding macro";
+			showlineinfo(*perr, mframe.getexpline(),usesnasmerrors);
+			*perr << endl;
+
+		}
+		else
+		{
+			showlineinfo(*perr, mframe.getexpline(), usesnasmerrors);
+			*perr << "ERROR: expanding macro";
+			*perr << endl;
+
+		}
+
 		throw;
 	}
 
@@ -7395,6 +7461,11 @@ void Asm::setpass3 ()
 	pin->setpass3 ();
 }
 
+void Asm::snasmerrors()
+{
+	pin->snasmerrors();
+}
+
 void Asm::addincludedir (const std::string & dirname)
 {
 	pin->addincludedir (dirname);
@@ -7405,9 +7476,9 @@ void Asm::addpredef (const std::string & predef)
 	pin->addpredef (predef);
 }
 
-void Asm::loadfile (const std::string & filename)
+void Asm::loadfile (const std::string & filename, bool usesnasmerrors)
 {
-	pin->loadfile (filename);
+	pin->loadfile (filename, usesnasmerrors);
 }
 
 void Asm::processfile ()

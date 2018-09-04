@@ -6,7 +6,8 @@ Extra Options:
 --cspecsymbols
 	Outputs map file in the format CSPEC emulator can read.
 
-
+--snasmerrors
+	Outputs errors messages in snasms format
 
 Comments:
 You can now use // and ; to define line comments

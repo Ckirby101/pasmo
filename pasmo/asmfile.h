@@ -17,13 +17,13 @@ public:
 	~AsmFile ();
 	void addincludedir (const std::string & dirname);
 	void loadfile (const std::string & filename, bool nocase,
-		std::ostream & outverb, std::ostream& outerr);
+		std::ostream & outverb, std::ostream& outerr, bool usesnasmerrors = false);
 	size_t getline () const;
 protected:
 	void openis (std::ifstream & is, const std::string & filename,
 		std::ios::openmode mode) const;
-	void showlineinfo (std::ostream & os, size_t nline) const;
-	void showcurrentlineinfo (std::ostream & os) const;
+	void showlineinfo (std::ostream & os, size_t nline,bool showlineinfo=false) const;
+	void showcurrentlineinfo (std::ostream & os,bool usesnasmerrors =false) const;
 	bool getvalidline ();
 	bool passeof () const;
 	Tokenizer & getcurrentline ();

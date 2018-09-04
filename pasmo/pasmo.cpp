@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <chrono>  // for high_resolution_clock
 
 using std::cout;
 using std::cerr;
@@ -74,6 +75,7 @@ const string optplus3dos  ("--plus3dos");
 const string optprl       ("--prl");
 const string optpublic    ("--public");
 const string optcspecsymbols ("--cspecsymbols");
+const string optsnasmerrors("--snasmerrors");
 const string opttap       ("--tap");
 const string opttapbas    ("--tapbas");
 const string opttzx       ("--tzx");
@@ -83,6 +85,8 @@ const string optsna       ("--sna");
 
 
 class Options {
+
+
 public:
 	Options (int argc, char * * argv);
 
@@ -92,6 +96,7 @@ public:
 	bool redirerr () const { return redirecterr; }
 	bool publiconly () const { return emitpublic; }
 	bool getpass3 () const { return pass3; }
+	bool getsnasmerrors() const { return snasmerrors; }
 	bool getcspecsymbols() const { return cspecsymbols; }
 	string getfilein () const { return filein; }
 	string getfileout () const { return fileout; }
@@ -99,6 +104,9 @@ public:
 	string getfilepublic () const;
 	string getheadername () const { return headername; }
 	void apply (Asm & assembler) const;
+
+
+
 private:
 	emitfunc_t emitfunc;
 	static const emitfunc_t emitdefault;
@@ -114,6 +122,7 @@ private:
 	bool warn8080;
 	bool mode86;
 	bool pass3;
+	bool snasmerrors;
 
 	vector <string> includedir;
 	vector <string> labelpredef;
@@ -180,6 +189,8 @@ Options::Options (int argc, char * * argv) :
 			emitpublic= true;
 		else if (arg == optcspecsymbols)
 			cspecsymbols = true;
+		else if (arg == optsnasmerrors)
+			snasmerrors = true;
 		else if (arg == optname)
 		{
 			++argpos;
@@ -292,6 +303,8 @@ void Options::apply (Asm & assembler) const
 		assembler.set86 ();
 	if (pass3)
 		assembler.setpass3 ();
+	if (snasmerrors)
+		assembler.snasmerrors();
 
 	for (size_t i= 0; i < includedir.size (); ++i)
 		assembler.addincludedir (includedir [i] );
@@ -305,6 +318,9 @@ void Options::apply (Asm & assembler) const
 
 int doit (int argc, char * * argv)
 {
+
+	auto start = std::chrono::high_resolution_clock::now();
+
 	// Process command line options.
 
 	Options option (argc, argv);
@@ -318,7 +334,7 @@ int doit (int argc, char * * argv)
 
 	option.apply (assembler);
 
-	assembler.loadfile (option.getfilein () );
+	assembler.loadfile (option.getfilein () ,option.getsnasmerrors());
 	assembler.processfile ();
 
 	// Generate ouptut file.
@@ -380,6 +396,11 @@ int doit (int argc, char * * argv)
 		}
 	}
 
+	auto finish = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> elapsed = finish - start;
+	std::cerr << "\nElapsed time: " << elapsed.count() << " s\n";
+
+
 	return 0;
 }
 
@@ -390,6 +411,8 @@ int doit (int argc, char * * argv)
 int main (int argc, char * * argv)
 {
 	// Just call doit and show possible errors.
+
+
 
 	try
 	{
@@ -418,6 +441,8 @@ int main (int argc, char * * argv)
 		cerr << "ERROR: Unexpected exception.\n"
 			"Please send a bug report.\n";
 	}
+
+
 
 	// Added to fix Debian bug report #394733
 	return 1;

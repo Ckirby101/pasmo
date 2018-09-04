@@ -30,12 +30,13 @@ public:
 	void warn8080 ();
 	void set86 ();
 	void setpass3 ();
+	void snasmerrors();
 
 	void addincludedir (const std::string & dirname);
 	void addpredef (const std::string & predef);
 	void setheadername (const std::string & headername_n);
 
-	void loadfile (const std::string & filename);
+	void loadfile (const std::string & filename,bool usesnasmerrors = false);
 	void processfile ();
 
 	void emitobject (std::ostream & out);
